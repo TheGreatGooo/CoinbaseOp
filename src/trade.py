@@ -9,6 +9,8 @@ trade_usd_upper_limit = 50
 trade_interval_seconds = 86400
 last_trade_timestamp = time.time()
 conn = http.client.HTTPSConnection("api.coinbase.com")
+api_key = "test"
+api_secret = "test"
 
 def canTrade():
     if time.time() - last_trade_timestamp < trade_interval_seconds :
@@ -17,18 +19,31 @@ def canTrade():
     else:
         return True
 
+def sendRequest(method, apiEndpoint, payload, headers):
+    timestamp = str(int(time.time()))
+    message = timestamp + method + apiEndpoint.split('?')[0] + str(payload or '')
+    signature = hmac.new(api_secret, message, hashlib.sha256).hexdigest()
+    headers = headers + {
+    'Content-Type': 'application/json',
+    'CB-ACCESS-KEY': api_key,
+    'CB-ACCESS-SIGN': signature,
+    'CB-ACCESS-TIMESTAMP': timestamp
+    }
+    conn.request(method, apiEndpoint, payload, headers)
+    res = conn.getresponse()
+    data = res.read()
+    return json.loads(data.decode("utf-8"))
+
 def getAvailableUSD():
     payload = ''
     headers = {
     'Content-Type': 'application/json'
     }
-    message = timestamp + request.method + request.path_url.split('?')[0] + str(request.body or '')
-    conn.request("GET", "/api/v3/brokerage/accounts", payload, headers)
-    res = conn.getresponse()
-    data = res.read()
-    for account in json.loads(data.decode("utf-8"))["accounts"] :
+    response = sendRequest("GET","/api/v3/brokerage/accounts",payload,headers)
+    for account in response["accounts"] :
         if account["currency"] == "USD":
             return Decimal(account["available_balance"]["value"])
+    return Decimal(0)
 
 if canTrade() :
     dollars_available = getAvailableUSD()
