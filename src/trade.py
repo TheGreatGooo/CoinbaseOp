@@ -20,6 +20,7 @@ def canTrade():
         return True
 
 def sendRequest(method, apiEndpoint, payload, headers):
+    global api_secret, api_key, conn
     timestamp = str(int(time.time()))
     message = timestamp + method + apiEndpoint.split('?')[0] + str(payload or '')
     signature = hmac.new(api_secret, message, hashlib.sha256).hexdigest()
@@ -50,10 +51,12 @@ if canTrade() :
     if dollars_available > 0 :
         trades_to_place = []
         for currency_pair in purchase_allocations.keys():
-            percent_to_allocate = purchase_allocations[currency_pair]
-            dollars_to_allocate = (percent_to_allocate/100.0) * dollars_available
-            if dollars_to_allocate > trade_usd_upper_limit or dollars_to_allocate < trade_usd_lower_limit :
+            percent_to_allocate = Decimal(purchase_allocations[currency_pair])
+            dollars_to_allocate = (percent_to_allocate/Decimal(100.0)) * dollars_available
+            if dollars_to_allocate > Decimal(trade_usd_upper_limit) or dollars_to_allocate < Decimal(trade_usd_lower_limit) :
                 print(f'Will skip trading {currency_pair} because $ {dollars_to_allocate} is out of bounds of the configured limits $ {trade_usd_lower_limit} - $ {trade_usd_upper_limit}')
                 continue
             trades_to_place.append({"currency_pair": currency_pair, "dollars": dollars_to_allocate})
     placeTrades(trades_to_place)
+
+print(getAvailableUSD())
