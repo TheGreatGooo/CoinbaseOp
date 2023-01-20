@@ -1,0 +1,11 @@
+[Unit]
+Description=CoinbaseOp Timer
+
+[Timer]
+Unit=CoinbaseOp.service
+OnCalendar=*-*-* *:00:00
+Persistent=True
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

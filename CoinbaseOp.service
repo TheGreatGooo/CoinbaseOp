@@ -1,0 +1,8 @@
+[Unit]
+Description=CoinbaseOp job
+
+[Service]
+ExecStart=/bin/python3 /opt/CoinbaseOp/trade.py
+
+[Install]
+WantedBy=multi-user.target
