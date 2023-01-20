@@ -2,6 +2,8 @@
 Description=CoinbaseOp job
 
 [Service]
+EnvironmentFile=/etc/CoinbaseOp/config.env
+EnvironmentFile=-/var/CoinbaseOp/last_trade_file
 ExecStart=/bin/python3 /opt/CoinbaseOp/trade.py
 
 [Install]
