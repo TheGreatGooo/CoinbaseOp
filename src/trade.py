@@ -1,16 +1,21 @@
 import http.client
 import json, hmac, hashlib, time, base64
 import time
+import uuid
+import math
 from decimal import Decimal
+import os
 
-purchase_allocations = {"BTC-USD":1.6,"ETH-USD":1.6}
-trade_usd_lower_limit = 1
-trade_usd_upper_limit = 50
-trade_interval_seconds = 86400
-last_trade_timestamp = time.time()
+purchase_allocations = json.loads(os.environ['purchase_allocations']) or {"BTC-USD":1.6,"ETH-USD":1.6}
+trade_usd_lower_limit = int(os.environ['trade_usd_lower_limit']) or 1
+trade_usd_upper_limit = int(os.environ['trade_usd_upper_limit']) or 50
+trade_interval_seconds = int(os.environ['trade_interval_seconds']) or  86400
+last_trade_timestamp = float(os.environ['last_trade_timestamp']) or 0
+last_trade_file = os.environ['last_trade_file'] or "/var/CoinbaseOp/last_trade_file"
+trade_offset_based_on_24h_percent_change = int(os.environ['trade_offset_based_on_24h_percent_change']) or 10
 conn = http.client.HTTPSConnection("api.coinbase.com")
-api_key = "test"
-api_secret = "test"
+api_key = os.environ['api_key'] or "test"
+api_secret = os.environ['api_secret'] or "test"
 
 def canTrade():
     if time.time() - last_trade_timestamp < trade_interval_seconds :
@@ -46,6 +51,38 @@ def getAvailableUSD():
             return Decimal(account["available_balance"]["value"])
     return Decimal(0)
 
+def getPrice(currency_pair):
+    payload = ''
+    headers = {
+    'Content-Type': 'application/json'
+    }
+    response = sendRequest("GET",f"api/v3/brokerage/products/{currency_pair}",payload,headers)
+    return {"price":Decimal(response["price"]), "price_percent_change_24h": Decimal(response["price_percentage_change_24h"][0,-1]), "step":Decimal(response["base_increment"])}
+
+def placeTrades(trades_to_place):
+    trades_placed = False
+    for trade in trades_to_place:
+        currency_pair = trade["currency_pair"]
+        dollars = trade["dollars"]
+        price_details = getPrice(currency_pair)
+        offset_percent = price_details["price_percent_change_24h"]*Decimal(trade_offset_based_on_24h_percent_change/100)
+        if dollars > 0 :
+            limit_price = price_details["price"] - (price_details["price"] * offset_percent/Decimal(100))
+            decimal_precision = round(math.log(price_details["step"],10))*-1
+            clean_limit_price = round(limit_price,decimal_precision)
+            amount = round(dollars/clean_limit_price,decimal_precision)
+            order_json_string = json.dumps({"side":"BUY","client_order_id":str(uuid.uuid1()),"product_id":currency_pair,"order_configuration":{"limit_limit_gtd":{"base_size":str(amount),"limit_price":str(clean_limit_price),"post_only":"true"}}})
+            headers = {
+            'Content-Type': 'application/json'
+            }
+            response = sendRequest("POST","/api/v3/brokerage/orders",order_json_string,headers)
+            trades_placed = True
+    if trades_placed :
+        f = open(last_trade_file, "w")
+        f.write(f"last_trade_timestamp=\"{str(time.time())}\"")
+        f.close()
+
+
 if canTrade() :
     dollars_available = getAvailableUSD()
     if dollars_available > 0 :
@@ -58,5 +95,3 @@ if canTrade() :
                 continue
             trades_to_place.append({"currency_pair": currency_pair, "dollars": dollars_to_allocate})
     placeTrades(trades_to_place)
-
-print(getAvailableUSD())
