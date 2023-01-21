@@ -2,9 +2,10 @@
 Description=CoinbaseOp job
 
 [Service]
-EnvironmentFile=/etc/CoinbaseOp/config.env
-EnvironmentFile=-/var/CoinbaseOp/last_trade_file
-ExecStart=/bin/python3 /opt/CoinbaseOp/trade.py
+ExecStartPre=-mkdir /var/CoinbaseOp
+ExecStartPre=-touch /var/CoinbaseOp/last_trade_file
+ExecStartPre=-chown 1000 /var/CoinbaseOp/last_trade_file
+ExecStart=/bin/docker run --rm --name CoinbaseOp -v /var/CoinbaseOp/last_trade_file:/var/CoinbaseOp/last_trade_file -v /opt/CoinbaseOp/trade.py:/usr/src/CoinbaseOp/trade.py -w /usr/src/CoinbaseOp/ --env-file /etc/CoinbaseOp/config.env --env-file /var/CoinbaseOp/last_trade_file docker.io/python:3-alpine -u 1000 trade.py
 
 [Install]
 WantedBy=multi-user.target
