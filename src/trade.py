@@ -57,7 +57,7 @@ def getPrice(currency_pair):
     'Content-Type': 'application/json'
     }
     response = sendRequest("GET",f"api/v3/brokerage/products/{currency_pair}",payload,headers)
-    return {"price":Decimal(response["price"]), "price_percent_change_24h": Decimal(response["price_percentage_change_24h"][0,-1]), "step":Decimal(response["base_increment"])}
+    return {"price":Decimal(response["price"]), "price_percent_change_24h": Decimal(response["price_percentage_change_24h"]),"step_quote":Decimal(response["quote_increment"]), "step_base":Decimal(response["base_increment"])}
 
 def placeTrades(trades_to_place):
     trades_placed = False
@@ -68,9 +68,10 @@ def placeTrades(trades_to_place):
         offset_percent = price_details["price_percent_change_24h"]*Decimal(trade_offset_based_on_24h_percent_change/100)
         if dollars > 0 :
             limit_price = price_details["price"] - (price_details["price"] * offset_percent/Decimal(100))
-            decimal_precision = round(math.log(price_details["step"],10))*-1
-            clean_limit_price = round(limit_price,decimal_precision)
-            amount = round(dollars/clean_limit_price,decimal_precision)
+            decimal_precision_quote = round(math.log(price_details["step_quote"],10))*-1
+            decimal_precision_base = round(math.log(price_details["step_base"],10))*-1
+            clean_limit_price = round(limit_price,decimal_precision_quote)
+            amount = round(dollars/clean_limit_price,decimal_precision_base)
             order_json_string = json.dumps({"side":"BUY","client_order_id":str(uuid.uuid1()),"product_id":currency_pair,"order_configuration":{"limit_limit_gtd":{"base_size":str(amount),"limit_price":str(clean_limit_price),"post_only":"true"}}})
             headers = {
             'Content-Type': 'application/json'
