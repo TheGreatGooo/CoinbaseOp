@@ -93,12 +93,14 @@ def placeTrades(trades_to_place):
 
 if canTrade() :
     dollars_available = getAvailableUSD()
+    dollars_available_post_trade = dollars_available
     if dollars_available > 0 :
         trades_to_place = []
         for currency_pair in purchase_allocations.keys():
             percent_to_allocate = Decimal(purchase_allocations[currency_pair])
-            dollars_to_allocate = (percent_to_allocate/Decimal(100.0)) * dollars_available
-            if dollars_to_allocate > Decimal(trade_usd_upper_limit) or dollars_to_allocate < Decimal(trade_usd_lower_limit) :
+            dollars_to_allocate = min(Decimal(trade_usd_upper_limit) , max((percent_to_allocate/Decimal(100.0)) * dollars_available,Decimal(trade_usd_lower_limit)))
+            dollars_available_post_trade = dollars_to_allocate - dollars_available_post_trade
+            if dollars_available_post_trade < 0 :
                 print(f'Will skip trading {currency_pair} because $ {dollars_to_allocate} is out of bounds of the configured limits $ {trade_usd_lower_limit} - $ {trade_usd_upper_limit}')
                 continue
             trades_to_place.append({"currency_pair": currency_pair, "dollars": dollars_to_allocate})
