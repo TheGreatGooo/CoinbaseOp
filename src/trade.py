@@ -99,7 +99,7 @@ if canTrade() :
         for currency_pair in purchase_allocations.keys():
             percent_to_allocate = Decimal(purchase_allocations[currency_pair])
             dollars_to_allocate = min(Decimal(trade_usd_upper_limit) , max((percent_to_allocate/Decimal(100.0)) * dollars_available,Decimal(trade_usd_lower_limit)))
-            dollars_available_post_trade = dollars_to_allocate - dollars_available_post_trade
+            dollars_available_post_trade = dollars_available_post_trade - dollars_to_allocate
             if dollars_available_post_trade < 0 :
                 print(f'Will skip trading {currency_pair} because $ {dollars_to_allocate} is out of bounds of the configured limits $ {trade_usd_lower_limit} - $ {trade_usd_upper_limit}')
                 continue
