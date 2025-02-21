@@ -36,7 +36,7 @@ def build_jwt(uri):
         jwt_payload,
         private_key,
         algorithm='ES256',
-        headers={'kid': key_name, 'nonce': secrets.token_hex()},
+        headers={'kid': api_key, 'nonce': secrets.token_hex()},
     )
     return jwt_token
 
