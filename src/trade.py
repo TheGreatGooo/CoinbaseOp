@@ -5,6 +5,10 @@ import uuid
 import math
 from decimal import Decimal
 import os
+import jwt
+from cryptography.hazmat.primitives import serialization
+import time
+import secrets
 
 purchase_allocations = json.loads(os.environ.get('purchase_allocations'))
 trade_usd_lower_limit = int(os.environ.get('trade_usd_lower_limit',1))
@@ -17,6 +21,25 @@ conn = http.client.HTTPSConnection("api.coinbase.com")
 api_key = os.environ.get('api_key', "test")
 api_secret = os.environ.get('api_secret', "test")
 
+def build_jwt(uri):
+    global api_secret, api_key, conn
+    private_key_bytes = api_secret.encode('utf-8')
+    private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
+    jwt_payload = {
+        'sub': api_key,
+        'iss': "cdp",
+        'nbf': int(time.time()),
+        'exp': int(time.time()) + 120,
+        'uri': uri,
+    }
+    jwt_token = jwt.encode(
+        jwt_payload,
+        private_key,
+        algorithm='ES256',
+        headers={'kid': key_name, 'nonce': secrets.token_hex()},
+    )
+    return jwt_token
+
 def canTrade():
     if time.time() - last_trade_timestamp < trade_interval_seconds :
         trade_paused_till =time.strftime("%A, %D %B %Y, %r",time.localtime(last_trade_timestamp+trade_interval_seconds))
@@ -26,15 +49,10 @@ def canTrade():
         return True
 
 def sendRequest(method, apiEndpoint, payload, headers):
-    global api_secret, api_key, conn
-    timestamp = str(int(time.time()))
-    message = timestamp + method + apiEndpoint.split('?')[0] + str(payload or '')
-    signature = hmac.new(api_secret.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
+    jwt_token = build_jwt(f"{method} api.coinbase.com{apiEndpoint}")
     headers = headers | {
     'Content-Type': 'application/json',
-    'CB-ACCESS-KEY': api_key,
-    'CB-ACCESS-SIGN': signature,
-    'CB-ACCESS-TIMESTAMP': timestamp
+    'Authorization': f"Bearer {jwt_token}",
     }
     conn.request(method, apiEndpoint, payload, headers)
     res = conn.getresponse()
